@@ -19,7 +19,7 @@ def write_header(output_file):
 
 from ucollections import namedtuple
 
-GlyphInfo = namedtuple('GlyphInfo', 'x y w h bits')
+GlyphInfo = namedtuple('GlyphInfo', 'x y w h advance bits')
 
 # Lookup GlyphInfo for a single codepoint or return None
 def lookup(font, cp):
@@ -30,10 +30,10 @@ def lookup(font, cp):
         if not ptr:
             return None
 
-        x, y, w, h, dlen = font.bboxes[font.bitmaps[ptr]]
+        x, y, w, h, advance, dlen = font.bboxes[font.bitmaps[ptr]]
         bits = font.bitmaps[ptr+1:ptr+1+dlen]
 
-        return GlyphInfo(x, y, w, h, bits)
+        return GlyphInfo(x, y, w, h, advance, bits)
     return None
 
 class FontBase:
@@ -58,9 +58,9 @@ def print_font_properties(font):
         print("{0:#{1}x},".format(b, 2), end="")
     print("]")
 
-    print("bbox: x={} y={} w={} h={}".format(letter_A.bbX, letter_A.bbY, letter_A.bbW, letter_A.bbH))
+    print("bbox: x={} y={} w={} h={} advance={}".format(letter_A.bbX, letter_A.bbY, letter_A.bbW, letter_A.bbH, letter_A.advance))
+    print("dir(letter_A)=" + str(dir(letter_A)))
 
-    foo = [0x41,0x41,0x41,0x7f,0x22,0x22,0x14,0x14,0x8,0x8,]
 
     print("\nDONE")
 
@@ -95,7 +95,11 @@ def export_font(font, font_name, outfile):
     #    b'CHARSET_ENCODING', b'FONT_ASCENT', b'FONT_DESCENT', b'DEFAULT_CHAR', b'COPYRIGHT', b'X_HEIGHT', b'CAP_HEIGHT']
     outfile.write("class {}(FontBase):\n".format(font_name))
     outfile.write("    height = {}\n".format(int(font[b"POINT_SIZE"])))
-    outfile.write("    advance = {}\n".format(int(font[b"AVERAGE_WIDTH"] // 10)))
+    try:
+        outfile.write("    advance = {}\n".format(int(font[b"AVERAGE_WIDTH"] // 10)))
+    except:
+        advance = font[ord('M')].advance
+        outfile.write("    advance = {}\n".format(advance))
     outfile.write("    ascent = {}\n".format(int(font[b"FONT_ASCENT"])))
     outfile.write("    descent = {}\n".format(int(font[b"FONT_DESCENT"])))
     # Standard leading is 25%
@@ -110,22 +114,30 @@ def export_font(font, font_name, outfile):
     codepoints = ""
     bitmap_offset = 1
 
+    included_codepoints = font.codepoints()
+
     for r in codepoint_ranges:
         codepoint_bitmap_offsets = []  # One offset for each codepoint
 
         for codepoint in range(r[0], r[1]):
-            info = font[codepoint]
+            info = None
+            try:
+                info = font[codepoint]
+            except:
+                info = font[ord(' ')]
+
             data = info.get_data()  # Returns data as a list of arrays of ints, each of which represents a hex digit
             # data = info.data  # Return an array of integers, which can be arbitrary size
             num_rows = len(data)
-            bytes_per_row = len(data[0]) // 2
+            bytes_per_row = len(data[0]) // 2 if data != None and len(data) > 0 else 0
             data_len = num_rows * bytes_per_row
 
             x = info.bbX
             y = info.bbY
             w = info.bbW
             h = info.bbH
-            bbox = (x, y, w, h, data_len)
+            advance = info.advance
+            bbox = (x, y, w, h, advance, data_len)
             bbox_offset = bbox_dict.get(bbox)
             if bbox_offset == None:
                 # We haven't see this bbox shape before, so add it to the dict
