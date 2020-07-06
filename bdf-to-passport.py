@@ -1,8 +1,7 @@
-#!/Users/kenc/dev/juliet/passport-mp/ENV/bin/python
-
-# Janky using the passport-mp pyenv, but whatever
+#!/usr/bin/env python3
 
 import sys
+
 from bdflib import reader
 
 codepoint_ranges = [(32, 127), (177, 182), (215, 216)]
