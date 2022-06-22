@@ -14,7 +14,7 @@ mccabe==0.6.1
 mnemonic==0.18
 more-itertools==8.3.0
 namedlist==1.7
-numpy==1.18.4
+numpy==1.22.0
 onetimepass==1.0.1
 opencv-python==4.2.0.34
 packaging==20.4
